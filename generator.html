@@ -91,6 +91,40 @@
             </div>
             <div v-if="chunk_size_reprocessing" class="text-xs text-blue-500 mt-1">Yeniden hesaplanıyor...</div>
           </div>
+
+          <div class="border-t pt-4">
+            <label class="block mb-1 font-medium">Scanner Bağlantısı</label>
+            <div class="flex items-stretch mb-2">
+              <button
+                v-on:click="url_locked = !url_locked"
+                :title="url_locked ? 'Düzenlemeyi aç' : 'Kilitle'"
+                class="border border-r-0 px-1.5 hover:bg-gray-100 text-xs select-none leading-none"
+                :class="url_locked ? 'text-gray-700' : 'text-gray-300'"
+              >{{url_locked ? '🔒' : '🔓'}}</button>
+              <button
+                v-on:click="reset_scanner_url"
+                title="Varsayılana sıfırla"
+                class="border border-r-0 px-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 text-xs"
+              >↺</button>
+              <textarea
+                v-model="scanner_url"
+                :readonly="url_locked"
+                placeholder="https://..."
+                rows="2"
+                :class="['border p-1 flex-1 text-xs min-w-0 resize-none leading-tight', url_locked ? 'text-gray-400 bg-gray-50' : 'text-gray-900 bg-white']"
+              ></textarea>
+            </div>
+            <button
+              v-on:click="toggle_scanner_qr"
+              :disabled="!scanner_url.trim()"
+              class="w-full p-1 border-2 border-gray-400 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              {{showing_scanner_qr ? 'QR Gizle' : 'QR Göster'}}
+            </button>
+            <div v-if="showing_scanner_qr" class="mt-3 flex flex-col items-center">
+              <div id="scanner-qrcode"></div>
+            </div>
+          </div>
         </div>
 
       </div>
@@ -120,6 +154,10 @@
           const chunk_range_input = ref('');
           const selected_file = ref(null);
           const chunk_size_reprocessing = ref(false);
+          const DEFAULT_SCANNER_URL = 'https://gist.github.com/seyitegenn/e06bf72c09ba0d91dc068bece7657669';
+          const scanner_url = ref(DEFAULT_SCANNER_URL);
+          const url_locked = ref(true);
+          const showing_scanner_qr = ref(false);
 
           let qrcode_object = null;
 
@@ -196,6 +234,33 @@
             user_message.value = `${total_chunks_count.value} chunk hazır. Chunk seçimi yapıp transfer başlatabilirsiniz.`;
           });
 
+          const render_scanner_qr = async () => {
+            await Vue.nextTick();
+            document.getElementById('scanner-qrcode').innerHTML = '';
+            new QRCode('scanner-qrcode', {
+              text: scanner_url.value.trim(),
+              width: 180,
+              height: 180,
+              colorDark: '#000000',
+              colorLight: '#ffffff',
+              correctLevel: QRCode.CorrectLevel.M,
+            });
+          };
+
+          const reset_scanner_url = () => {
+            scanner_url.value = DEFAULT_SCANNER_URL;
+          };
+
+          const toggle_scanner_qr = async () => {
+            if (!scanner_url.value.trim()) return;
+            showing_scanner_qr.value = !showing_scanner_qr.value;
+            if (showing_scanner_qr.value) render_scanner_qr();
+          };
+
+          watch(scanner_url, () => {
+            if (showing_scanner_qr.value && scanner_url.value.trim()) render_scanner_qr();
+          });
+
           const stop_transfer = () => {
             is_transferring.value = false;
             user_message.value = file_loaded.value
@@ -246,9 +311,15 @@
             file_loaded,
             total_chunks_count,
             chunk_range_input,
+            scanner_url,
+            showing_scanner_qr,
             on_file_selected,
             start_transfer,
             stop_transfer,
+            DEFAULT_SCANNER_URL,
+            url_locked,
+            reset_scanner_url,
+            toggle_scanner_qr,
           };
         },
       }).mount('#app');
