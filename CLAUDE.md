@@ -2,6 +2,12 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## GitHub Pages Deploy
+
+The site is served from the `docs/` folder. `docs/index.html` is a one-line meta-refresh redirect to `docs/scanner.html`, which is the deployable copy of `scanner.html`.
+
+GitHub Pages only serves files inside `docs/` — paths like `../scanner.html` do not work. When `scanner.html` is updated, `docs/scanner.html` must be updated to match.
+
 ## Running the App
 
 No build step. Open the HTML files directly in a browser:
