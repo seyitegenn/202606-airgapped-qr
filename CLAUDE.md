@@ -72,3 +72,5 @@ To retry missed chunks: Stop Transfer → type missing indices into the range fi
 ## Missing Chunk Display (scanner.html)
 
 `missing_chunks` is a Vue `computed` that diffs `file_metadata.chunks` against `Object.keys(decoded_chunks)`. Updates reactively as chunks arrive. The "Kopyala" button writes `missing_chunks.value.join(',')` to the clipboard — paste directly into generator's range field.
+
+Displayed below the video element. Starting the receiver does NOT clear previously received chunks — only a new file (different name or chunk count in the metadata QR) resets `decoded_chunks`. Stop receiver performs a full reset.

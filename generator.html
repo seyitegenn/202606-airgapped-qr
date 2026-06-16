@@ -161,6 +161,15 @@
 
           let qrcode_object = null;
 
+          const fnv32a = (str) => {
+            let h = 0x811c9dc5;
+            for (let i = 0; i < str.length; i++) {
+              h ^= str.charCodeAt(i);
+              h = (h * 0x01000193) >>> 0;
+            }
+            return h.toString(36);
+          };
+
           const correct_level_map = {
             L: QRCode.CorrectLevel.L,
             M: QRCode.CorrectLevel.M,
@@ -275,7 +284,8 @@
             rebuild_qrcode();
 
             const indices = parse_range(chunk_range_input.value, total_chunks_count.value - 1);
-            const file_metadata = { name: selected_file.value.name, chunks: total_chunks_count.value };
+            const sid = fnv32a(`${selected_file.value.name}|${compressed_data.value.length}|${used_chunk_size.value}|${error_correction.value}`);
+            const file_metadata = { name: selected_file.value.name, chunks: total_chunks_count.value, sid };
 
             qrcode_object.makeCode(JSON.stringify(file_metadata));
             user_message.value = 'Transfer birkaç saniye içinde başlıyor...';

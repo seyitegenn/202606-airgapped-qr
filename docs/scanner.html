@@ -44,18 +44,24 @@
           Stop Receiver
         </button>
 
-        <!-- Eksik chunk gösterimi -->
-        <div v-if="file_metadata.chunks && missing_chunks.length > 0" class="w-full max-w-lg mb-4">
-          <div class="flex justify-between items-center mb-1 text-sm">
-            <span>Eksik chunk ({{missing_chunks.length}} / {{file_metadata.chunks}}):</span>
-            <button v-on:click="copy_missing" class="text-xs border px-2 py-0.5 hover:bg-gray-50">Kopyala</button>
-          </div>
-          <div class="flex flex-wrap gap-1 max-h-32 overflow-y-auto border rounded p-2 bg-gray-50">
-            <span
-              v-for="n in missing_chunks"
-              :key="n"
-              class="text-xs bg-red-100 border border-red-300 rounded px-1 py-0.5"
-            >{{n}}</span>
+        <!-- Eksik chunk accordion -->
+        <div v-if="file_metadata.chunks && missing_chunks.length > 0" class="w-full max-w-lg mb-2">
+          <button
+            v-on:click="missing_open = !missing_open"
+            class="w-full flex justify-between items-center border px-3 py-1.5 text-sm bg-gray-50 hover:bg-gray-100"
+          >
+            <span>Eksik chunk ({{missing_chunks.length}} / {{file_metadata.chunks}})</span>
+            <span>{{missing_open ? '▲' : '▼'}}</span>
+          </button>
+          <div v-show="missing_open" class="border border-t-0 p-2">
+            <div class="flex flex-wrap gap-1 max-h-32 overflow-y-auto mb-2">
+              <span
+                v-for="n in missing_chunks"
+                :key="n"
+                class="text-xs bg-red-100 border border-red-300 rounded px-1 py-0.5"
+              >{{n}}</span>
+            </div>
+            <button v-on:click="copy_missing" class="text-xs border px-2 py-0.5 hover:bg-gray-50 w-full">Kopyala</button>
           </div>
         </div>
 
@@ -77,6 +83,7 @@
           const file_metadata = reactive({});
           const is_receiving = ref(false);
           const camera_error = ref('');
+          const missing_open = ref(false);
           let canvas, context, videoElement, camera_ready = false;
 
           const missing_chunks = computed(() => {
@@ -150,6 +157,11 @@
             decoded_chunks.value = {};
             Object.keys(file_metadata).forEach(k => delete file_metadata[k]);
             user_message.value = 'Almaya başlamak için butona tıklayın';
+            if (videoElement && videoElement.srcObject) {
+              videoElement.srcObject.getTracks().forEach(t => t.stop());
+              videoElement.srcObject = null;
+            }
+            camera_ready = false;
           };
 
           const start_receiver = async () => {
@@ -157,7 +169,6 @@
             const ok = await init_camera();
             if (!ok) return;
 
-            decoded_chunks.value = {};
             is_receiving.value = true;
             user_message.value = 'QR kodunu kameraya gösterin...';
 
@@ -172,8 +183,8 @@
                 const decoded_data = symbols[0].decode();
                 if (decoded_data.includes('chunks')) {
                   const meta = JSON.parse(decoded_data);
+                  if (meta.sid !== file_metadata.sid) decoded_chunks.value = {};
                   Object.assign(file_metadata, meta);
-                  decoded_chunks.value = {};
                   user_message.value = `Dosya alınıyor: ${file_metadata.name}`;
                 } else if (decoded_data.split(',').length == 2) {
                   const raw_data = decode_data(decoded_data);
@@ -184,8 +195,6 @@
               }
 
               if (!is_receiving.value) {
-                Object.keys(file_metadata).forEach(k => delete file_metadata[k]);
-                decoded_chunks.value = {};
                 user_message.value = 'Almaya başlamak için butona tıklayın';
                 return true;
               }
@@ -205,6 +214,7 @@
           return {
             user_message,
             camera_error,
+            missing_open,
             start_receiver,
             stop_receiver,
             is_receiving,
