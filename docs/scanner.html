@@ -31,15 +31,16 @@
         <button
           v-if="!is_receiving"
           v-on:click="start_receiver"
-          :disabled="!!camera_error"
+          :disabled="is_transitioning || !!camera_error"
           class="mb-6 p-1 border-2 border-gray-500 disabled:opacity-40 disabled:cursor-not-allowed"
         >
-          Start Receiver
+          {{is_transitioning ? 'Başlatılıyor...' : 'Start Receiver'}}
         </button>
         <button
           v-else
           v-on:click="stop_receiver"
-          class="mb-6 p-1 border-2 border-gray-500"
+          :disabled="is_transitioning"
+          class="mb-6 p-1 border-2 border-gray-500 disabled:opacity-40 disabled:cursor-not-allowed"
         >
           Stop Receiver
         </button>
@@ -82,6 +83,7 @@
           const decoded_chunks = ref({});
           const file_metadata = reactive({});
           const is_receiving = ref(false);
+          const is_transitioning = ref(false);
           const camera_error = ref('');
           const missing_open = ref(false);
           let canvas, context, videoElement, camera_ready = false;
@@ -165,8 +167,13 @@
           };
 
           const start_receiver = async () => {
+            if (is_transitioning.value || is_receiving.value) return;
             camera_error.value = '';
+            is_transitioning.value = true;
+            user_message.value = 'Kamera başlatılıyor...';
+
             const ok = await init_camera();
+            is_transitioning.value = false;
             if (!ok) return;
 
             is_receiving.value = true;
@@ -215,6 +222,7 @@
             user_message,
             camera_error,
             missing_open,
+            is_transitioning,
             start_receiver,
             stop_receiver,
             is_receiving,
