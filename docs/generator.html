@@ -80,7 +80,7 @@
                 {{showing_scanner_qr ? 'Hide QR' : 'Show QR'}}
               </button>
               <div v-if="showing_scanner_qr" class="mt-3 flex flex-col items-center">
-                <div id="scanner-qrcode"></div>
+                <div id="scanner-qrcode-mobile"></div>
               </div>
             </div>
           </div>
@@ -194,7 +194,7 @@
               {{showing_scanner_qr ? 'Hide QR' : 'Show QR'}}
             </button>
             <div v-if="showing_scanner_qr" class="mt-3 flex flex-col items-center">
-              <div id="scanner-qrcode"></div>
+              <div id="scanner-qrcode-desktop"></div>
             </div>
           </div>
         </div>
@@ -345,15 +345,19 @@
 
           const render_scanner_qr = async () => {
             await Vue.nextTick();
-            document.getElementById('scanner-qrcode').innerHTML = '';
-            new QRCode('scanner-qrcode', {
-              text: scanner_url.value.trim(),
-              width: 180,
-              height: 180,
-              colorDark: '#000000',
-              colorLight: '#ffffff',
-              correctLevel: QRCode.CorrectLevel.M,
-            });
+            for (const id of ['scanner-qrcode-mobile', 'scanner-qrcode-desktop']) {
+              const el = document.getElementById(id);
+              if (!el) continue;
+              el.innerHTML = '';
+              new QRCode(id, {
+                text: scanner_url.value.trim(),
+                width: 180,
+                height: 180,
+                colorDark: '#000000',
+                colorLight: '#ffffff',
+                correctLevel: QRCode.CorrectLevel.M,
+              });
+            }
           };
 
           const reset_scanner_url = () => {
