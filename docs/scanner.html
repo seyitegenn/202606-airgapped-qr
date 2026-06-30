@@ -4,6 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+    <link rel="icon" href="data:,">
     <script src="https://cdn.tailwindcss.com"></script>
   </head>
 
@@ -71,7 +72,7 @@
       </div>
     </div>
 
-    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@undecaf/zbar-wasm@0.11.0/dist/index.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.0.3/pako.min.js"></script>
     <script>
@@ -113,7 +114,7 @@
                 video: { facingMode: 'environment' },
               });
               canvas = document.createElement('canvas');
-              context = canvas.getContext('2d');
+              context = canvas.getContext('2d', { willReadFrequently: true });
               await new Promise(r => setTimeout(r, 2000));
               canvas.height = videoElement.videoHeight;
               canvas.width = videoElement.videoWidth;
