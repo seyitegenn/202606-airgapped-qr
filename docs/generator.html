@@ -26,7 +26,64 @@
           >
             <span class="text-2xl text-gray-500">Drop the file here</span>
           </div>
+
+          <!-- Hamburger -->
+          <button
+            v-on:click="settings_open = !settings_open"
+            class="absolute top-4 right-4 p-1 text-gray-500 hover:text-gray-800"
+            title="Toggle settings"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+              <line x1="3" y1="6" x2="21" y2="6"/>
+              <line x1="3" y1="12" x2="21" y2="12"/>
+              <line x1="3" y1="18" x2="21" y2="18"/>
+            </svg>
+          </button>
+
           <div class="text-xl mb-4">Generator</div>
+
+          <!-- Settings panel — mobile inline (between title and file input) -->
+          <div v-show="settings_open" class="w-full mb-4 md:hidden flex flex-col gap-4 text-sm border-y py-4 bg-gray-50">
+            <div>
+              <label class="block mb-1 font-medium">Error Correction</label>
+              <select v-model="error_correction" :disabled="is_transferring" class="border p-1 w-full bg-white disabled:opacity-50">
+                <option value="L">L — Easy Scan</option>
+                <option value="M">M — Default</option>
+                <option value="Q">Q — Balanced</option>
+                <option value="H">H — Robust</option>
+              </select>
+            </div>
+            <div>
+              <label class="block mb-1 font-medium">QR Frame Delay</label>
+              <div class="flex items-center gap-2">
+                <input type="range" v-model.number="chunk_delay_ms" min="20" max="500" step="10" class="flex-1">
+                <input type="number" v-model.number="chunk_delay_ms" min="20" max="9999" step="10" class="border p-1 w-20 text-center text-xs">
+                <span class="text-gray-500">ms</span>
+              </div>
+            </div>
+            <div>
+              <label class="block mb-1 font-medium">Chunk Size</label>
+              <div class="flex items-center gap-2">
+                <input type="range" v-model.number="chunk_size_config" min="100" max="500" step="50" :disabled="is_transferring" class="flex-1 disabled:opacity-50">
+                <span class="text-gray-500 w-14 text-right">{{chunk_size_config}}B</span>
+              </div>
+              <div v-if="chunk_size_reprocessing" class="text-xs text-blue-500 mt-1">Recalculating...</div>
+            </div>
+            <div class="border-t pt-4">
+              <label class="block mb-1 font-medium">Scanner Link</label>
+              <div class="flex items-stretch mb-2">
+                <button v-on:click="url_locked = !url_locked" :title="url_locked ? 'Unlock' : 'Lock'" class="border border-r-0 px-1.5 hover:bg-gray-100 text-xs select-none leading-none" :class="url_locked ? 'text-gray-700' : 'text-gray-300'">{{url_locked ? '🔒' : '🔓'}}</button>
+                <button v-on:click="reset_scanner_url" title="Reset to default" class="border border-r-0 px-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 text-xs">↺</button>
+                <textarea v-model="scanner_url" :readonly="url_locked" placeholder="https://..." rows="2" :class="['border p-1 flex-1 text-xs min-w-0 resize-none leading-tight', url_locked ? 'text-gray-400 bg-gray-50' : 'text-gray-900 bg-white']"></textarea>
+              </div>
+              <button v-on:click="toggle_scanner_qr" :disabled="!scanner_url.trim()" class="w-full p-1 border-2 border-gray-400 disabled:opacity-40 disabled:cursor-not-allowed">
+                {{showing_scanner_qr ? 'Hide QR' : 'Show QR'}}
+              </button>
+              <div v-if="showing_scanner_qr" class="mt-3 flex flex-col items-center">
+                <div id="scanner-qrcode"></div>
+              </div>
+            </div>
+          </div>
 
           <!-- File Input -->
           <label class="w-full max-w-md mb-4 flex items-center border border-black cursor-pointer text-sm select-none">
@@ -75,8 +132,8 @@
           </div>
         </div>
 
-        <!-- Config panel (right sidebar) -->
-        <div class="w-60 shrink-0 border-l bg-gray-50 p-4 flex flex-col gap-5 text-sm">
+        <!-- Config panel (right sidebar — desktop only) -->
+        <div v-show="settings_open" class="hidden md:flex flex-col w-60 shrink-0 border-l bg-gray-50 p-4 gap-5 text-sm">
           <div class="font-medium text-gray-700 border-b pb-2">Settings</div>
 
           <div>
@@ -155,6 +212,7 @@
         setup() {
           const is_transferring = ref(false);
           const current_chunk_index = ref(0);
+          const settings_open = ref(window.innerWidth >= 768);
 
           // Config
           const error_correction = ref('M');
@@ -321,8 +379,6 @@
             is_transferring.value = true;
             current_chunk_index.value = 0;
 
-            rebuild_qrcode();
-
             const indices = parse_range(chunk_range_input.value, total_chunks_count.value - 1);
             const sid = fnv32a(`${selected_file.value.name}|${compressed_data.value.length}|${used_chunk_size.value}|${error_correction.value}`);
             const file_metadata = { name: selected_file.value.name, chunks: total_chunks_count.value, sid };
@@ -352,6 +408,7 @@
           return {
             is_transferring,
             current_chunk_index,
+            settings_open,
             is_dragging,
             on_drag_enter,
             on_drag_leave,
