@@ -400,7 +400,10 @@
               qrcode_object.makeCode(encode_data(i, chunk));
             }
 
-            if (is_transferring.value) show_metadata_qr();
+            if (is_transferring.value) {
+              await new Promise(r => setTimeout(r, chunk_delay_ms.value));
+              show_metadata_qr();
+            }
             stop_transfer();
           };
 
