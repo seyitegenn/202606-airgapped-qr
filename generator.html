@@ -12,52 +12,62 @@
       <div class="flex min-h-screen">
 
         <!-- Main content -->
-        <div class="flex flex-col items-center flex-1 py-4 px-4">
-          <div class="text-xl my-4">Data Sender Mode</div>
-          <div class="text-sm mb-4">{{user_message}}</div>
+        <div
+          class="flex flex-col items-center flex-1 py-4 px-4 relative"
+          @dragenter.prevent="on_drag_enter"
+          @dragover.prevent
+          @dragleave="on_drag_leave"
+          @drop.prevent="on_drop"
+        >
+          <!-- Drag overlay -->
+          <div
+            v-if="is_dragging"
+            class="absolute inset-0 z-50 flex items-center justify-center bg-white/80 border-4 border-dashed border-gray-400 pointer-events-none"
+          >
+            <span class="text-2xl text-gray-500">Dosyayı bırakın</span>
+          </div>
+          <div class="text-xl mb-4">Generator</div>
 
           <!-- File Input -->
-          <div class="w-full max-w-md mb-4">
-            <input
-              class="block w-full text-sm text-gray-900 border border-gray-300 cursor-pointer bg-gray-50 focus:outline-none"
-              id="file_input"
-              type="file"
-              @change="on_file_selected"
-            />
-          </div>
+          <label class="w-full max-w-md mb-4 flex items-center border border-black cursor-pointer text-sm select-none">
+            <span class="px-2 py-1 bg-gray-200 text-gray-700 border-r border-gray-300 shrink-0">Dosya Seç</span>
+            <span class="px-2 py-1 text-gray-900 truncate" :class="{'text-gray-400': !selected_file}">
+              {{selected_file ? selected_file.name : 'Dosya seçilmedi'}}
+            </span>
+            <input id="file_input" type="file" class="hidden" @change="on_file_selected">
+          </label>
 
-          <!-- Chunk selection (visible after file is loaded) -->
-          <div v-if="file_loaded && !is_transferring" class="w-full max-w-md mb-4 text-sm">
-            <label class="block mb-1 font-medium">
-              Chunk Seçimi
-              <span class="font-normal text-gray-500">(toplam: {{total_chunks_count}} chunk)</span>
-            </label>
-            <input
-              v-model="chunk_range_input"
-              placeholder="0-49  veya  3,7,15-20  — boş bırakılırsa tümü"
-              class="border p-1 w-full font-mono text-xs"
+          <!-- Action button + chunk selection (same row) -->
+          <div class="w-full max-w-md mb-4 flex items-center gap-2">
+            <button
+              v-if="!is_transferring"
+              v-on:click="start_transfer"
+              :disabled="!file_loaded"
+              class="p-1 border-2 border-gray-500 disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap shrink-0"
             >
+              Start Transfer
+            </button>
+            <button
+              v-else
+              v-on:click="stop_transfer"
+              class="p-1 border-2 border-gray-500 whitespace-nowrap shrink-0"
+            >
+              Stop Transfer
+            </button>
+            <template v-if="file_loaded && !is_transferring">
+              <span class="text-xs text-gray-500 whitespace-nowrap shrink-0">{{total_chunks_count}} chunk</span>
+              <input
+                v-model="chunk_range_input"
+                placeholder="seçim"
+                class="border p-1 flex-1 font-mono text-xs min-w-0"
+              >
+            </template>
           </div>
-
-          <!-- Buttons -->
-          <button
-            v-if="!is_transferring"
-            v-on:click="start_transfer"
-            :disabled="!file_loaded"
-            class="mb-6 p-1 border-2 border-gray-500 disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            Start Transfer
-          </button>
-          <button
-            v-else
-            v-on:click="stop_transfer"
-            class="mb-6 p-1 border-2 border-gray-500"
-          >
-            Stop Transfer
-          </button>
 
           <!-- QR Code -->
-          <div id="qrcode" class="mb-8"></div>
+          <div class="mb-4 p-4 border border-gray-300">
+            <div id="qrcode"></div>
+          </div>
         </div>
 
         <!-- Config panel (right sidebar) -->
@@ -149,6 +159,7 @@
           // File state
           const compressed_data = ref(null);
           const file_loaded = ref(false);
+          const is_dragging = ref(false);
           const total_chunks_count = ref(0);
           const used_chunk_size = ref(250);
           const chunk_range_input = ref('');
@@ -178,7 +189,7 @@
           };
 
           const rebuild_qrcode = () => {
-            const lowest_size = Math.min(window.innerWidth, window.innerHeight) / 1.5;
+            const lowest_size = Math.min(window.innerWidth, window.innerHeight) / 1.3;
             document.getElementById('qrcode').innerHTML = '';
             qrcode_object = new QRCode('qrcode', {
               text: ' ',
@@ -225,13 +236,47 @@
             file_loaded.value = true;
           };
 
-          const on_file_selected = async (event) => {
-            const file = event.target.files[0];
+          const reset_file_state = () => {
+            file_loaded.value = false;
+            selected_file.value = null;
+            compressed_data.value = null;
+            total_chunks_count.value = 0;
+            chunk_range_input.value = '';
+            user_message.value = 'Dosya seçerek başlayın';
+            if (qrcode_object) qrcode_object.makeCode(' ');
+          };
+
+          const show_metadata_qr = () => {
+            if (!selected_file.value || !file_loaded.value) return;
+            const sid = fnv32a(`${selected_file.value.name}|${compressed_data.value.length}|${used_chunk_size.value}|${error_correction.value}`);
+            const meta = { name: selected_file.value.name, chunks: total_chunks_count.value, sid };
+            qrcode_object.makeCode(JSON.stringify(meta));
+          };
+
+          const handle_file = async (file) => {
             if (!file) return;
+            reset_file_state();
             selected_file.value = file;
             user_message.value = 'Dosya sıkıştırılıyor...';
             await process_file(file, chunk_size_config.value);
             user_message.value = `${total_chunks_count.value} chunk hazır. Chunk seçimi yapıp transfer başlatabilirsiniz.`;
+            show_metadata_qr();
+          };
+
+          const on_file_selected = (event) => handle_file(event.target.files[0]);
+
+          let drag_counter = 0;
+          const on_drag_enter = () => { drag_counter++; is_dragging.value = true; };
+          const on_drag_leave = () => { drag_counter--; if (drag_counter === 0) is_dragging.value = false; };
+          const on_drop = (event) => {
+            drag_counter = 0;
+            is_dragging.value = false;
+            const file = event.dataTransfer.files[0];
+            if (!file) return;
+            const dt = new DataTransfer();
+            dt.items.add(file);
+            document.getElementById('file_input').files = dt.files;
+            handle_file(file);
           };
 
           // Chunk boyutu değişince dosyayı anında yeniden işle
@@ -241,6 +286,12 @@
             await process_file(selected_file.value, new_size);
             chunk_size_reprocessing.value = false;
             user_message.value = `${total_chunks_count.value} chunk hazır. Chunk seçimi yapıp transfer başlatabilirsiniz.`;
+            show_metadata_qr();
+          });
+
+          watch(error_correction, () => {
+            rebuild_qrcode();
+            if (file_loaded.value && !is_transferring.value) show_metadata_qr();
           });
 
           const render_scanner_qr = async () => {
@@ -315,6 +366,10 @@
           return {
             user_message,
             is_transferring,
+            is_dragging,
+            on_drag_enter,
+            on_drag_leave,
+            on_drop,
             error_correction,
             chunk_delay_ms,
             chunk_size_config,
@@ -324,6 +379,7 @@
             chunk_range_input,
             scanner_url,
             showing_scanner_qr,
+            selected_file,
             on_file_selected,
             start_transfer,
             stop_transfer,
